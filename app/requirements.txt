@@ -6,5 +6,5 @@ psycopg2-binary
 pgvector
 
 llama-index-core
-ollama
-transformers
+torch
+sentence_transformers

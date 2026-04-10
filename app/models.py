@@ -40,6 +40,8 @@ class ServiceChunk(Base):
     service_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("services.id", ondelete="CASCADE"))
     content: Mapped[str] = mapped_column()
     chunk_index: Mapped[int] = mapped_column()
-    embedding: Mapped[list[float] | None] = mapped_column(Vector(1024))
+    embedding_qwen: Mapped[list[float] | None] = mapped_column(Vector(1024))
+    embedding_bge: Mapped[list[float] | None] = mapped_column(Vector(1024))
+    embedding_gemma: Mapped[list[float] | None] = mapped_column(Vector(768))
     
     service: Mapped["Service"] = relationship(back_populates="chunks")

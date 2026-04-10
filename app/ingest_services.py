@@ -1,22 +1,30 @@
 import json
-import ollama
+import torch
 
 from sqlalchemy.orm import Session
 from tqdm import tqdm
 
-from transformers import AutoTokenizer
+from sentence_transformers import SentenceTransformer
 from llama_index.core import Document
 from llama_index.core.node_parser import SentenceSplitter
 
 from models import Service, ServiceChunk, get_db
 
-
-TOKENIZER = AutoTokenizer.from_pretrained("Qwen/Qwen3-Embedding-0.6B")
 splitter = SentenceSplitter(
-    chunk_size=512,
-    chunk_overlap=200,
-    tokenizer=TOKENIZER.encode,
+    chunk_size=1000,
+    chunk_overlap=400
 )
+
+MODELS = [
+    {"name": "qwen3", "path": "Qwen/Qwen3-Embedding-0.6B"},
+    {"name": "gemma", "path": "google/embeddinggemma-300m"},
+    {"name": "bge", "path": "BAAI/bge-m3"}
+]
+
+LOADED_MODELS = {
+    m["name"]: SentenceTransformer(m["path"], device="cuda" if torch.cuda.is_available() else "cpu")
+    for m in MODELS
+}
 
 def service_to_markdown(service: dict) -> str:
     nome = service.get("nome", "Serviço sem nome")
@@ -92,10 +100,7 @@ def chunk_text(text: str):
     nodes = splitter.get_nodes_from_documents([doc])
     return [node.text for node in nodes]
 
-def get_embeddings(texts: list[str]) -> list[list[float]]:
-    return ollama.embed(model="qwen3-embedding:0.6b", input=texts)["embeddings"]
-
-def ingest_services(db: Session, json_path: str) -> dict:
+def ingest_services(db: Session, json_path: str):
     with open(json_path, encoding="utf-8") as f:
         data = json.load(f)
     
@@ -103,8 +108,6 @@ def ingest_services(db: Session, json_path: str) -> dict:
     existing = {name for (name,) in db.query(Service.nome).all()}
     
     created = 0
-    chunks_created = 0
-    
     pbar = tqdm(services_data, desc="Ingesting services", unit="svc")
     
     for svc in pbar:
@@ -113,14 +116,12 @@ def ingest_services(db: Session, json_path: str) -> dict:
             continue
         
         pbar.set_postfix({"serviço": nome[:20]})
-        
         markdown = service_to_markdown(svc)
         orgao = svc.get("orgao", {}).get("nomeOrgao")
         
         service = Service(nome=nome, orgao=orgao, markdown_content=markdown)
         db.add(service)
         db.flush()
-        
 
         chunks = chunk_text(markdown)
         
@@ -133,17 +134,21 @@ def ingest_services(db: Session, json_path: str) -> dict:
             else:
                 content_with_context.append(chunk)
 
-        embeddings = get_embeddings(content_with_context)
-        
-        for i, (content, emb) in enumerate(zip(content_with_context, embeddings)):
+
+        all_vectors = {}
+        for m_name, m_instance in LOADED_MODELS.items():
+            all_vectors[m_name] = m_instance.encode(content_with_context)
+
+        for i, text_content in enumerate(content_with_context):
             chunk = ServiceChunk(
                 service_id=service.id,
-                content=content,
+                content=text_content,
                 chunk_index=i,
-                embedding=emb
+                embedding_qwen=all_vectors["qwen3"][i].tolist(),
+                embedding_gemma=all_vectors["gemma"][i].tolist(),
+                embedding_bge=all_vectors["bge"][i].tolist()
             )
             db.add(chunk)
-            chunks_created += 1
         
         existing.add(nome)
         created += 1
