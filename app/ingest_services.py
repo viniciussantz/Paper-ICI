@@ -4,16 +4,20 @@ import torch
 from sqlalchemy.orm import Session
 from tqdm import tqdm
 
+from huggingface_hub import login
 from sentence_transformers import SentenceTransformer
-from llama_index.core import Document
-from llama_index.core.node_parser import SentenceSplitter
+from langchain_text_splitters import CharacterTextSplitter
 
 from models import Service, ServiceChunk, get_db
 
-splitter = SentenceSplitter(
+splitter = CharacterTextSplitter(
+    separator="",
     chunk_size=1000,
-    chunk_overlap=400
+    chunk_overlap=400,
+    length_function=len
 )
+
+login(token="")
 
 MODELS = [
     {"name": "qwen3", "path": "Qwen/Qwen3-Embedding-0.6B"},
@@ -95,11 +99,9 @@ def extract_tempo(service: dict) -> str:
     else:
         return "Não informado"
 
-def chunk_text(text: str):
-    doc = Document(text=text) 
-    nodes = splitter.get_nodes_from_documents([doc])
-    return [node.text for node in nodes]
-
+def chunk_text(text: str) -> list[str]:
+    return splitter.split_text(text)
+    
 def ingest_services(db: Session, json_path: str):
     with open(json_path, encoding="utf-8") as f:
         data = json.load(f)

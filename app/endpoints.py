@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from app.models import get_db, Service
+from models import get_db, Service
 
 router = APIRouter()
 
