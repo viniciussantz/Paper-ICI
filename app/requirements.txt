@@ -5,6 +5,11 @@ sqlalchemy
 psycopg2-binary
 pgvector
 
-llama-index-core
 torch
+langchain_text_splitters
 sentence_transformers
+
+ragas
+langchain_openai
+rapidfuzz
+langfuse

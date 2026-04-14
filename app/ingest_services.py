@@ -1,4 +1,5 @@
 import json
+import os
 import torch
 
 from sqlalchemy.orm import Session
@@ -10,6 +11,9 @@ from langchain_text_splitters import CharacterTextSplitter
 
 from models import Service, ServiceChunk, get_db
 
+from dotenv import load_dotenv
+load_dotenv()
+
 splitter = CharacterTextSplitter(
     separator="",
     chunk_size=1000,
@@ -17,7 +21,7 @@ splitter = CharacterTextSplitter(
     length_function=len
 )
 
-login(token="")
+login(token=os.getenv("HUGGINGFACEHUB_API_TOKEN"))
 
 MODELS = [
     {"name": "qwen3", "path": "Qwen/Qwen3-Embedding-0.6B"},
